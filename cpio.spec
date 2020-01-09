@@ -3,7 +3,7 @@
 Summary: A GNU archiving program
 Name: cpio
 Version: 2.10
-Release: 12%{?dist}
+Release: 13%{?dist}
 License: GPLv3+
 Group: Applications/Archiving
 URL: http://www.gnu.org/software/cpio/
@@ -35,6 +35,9 @@ Patch10: cpio-2.10-longnames-split.patch
 
 # "really" check for read() return value
 Patch11: cpio-2.11-treat-read-errors.patch
+
+# 'newc' format and big inode numbers
+Patch12: cpio-2.11-big-inode-numbers.patch
 
 Requires(post): /sbin/install-info
 Requires(preun): /sbin/install-info
@@ -68,6 +71,7 @@ Install cpio if you need a program to manage file archives.
 %patch9  -p1 -b .rtapelib
 %patch10 -p1 -b .longnames
 %patch11 -p1 -b .safe-read-check
+%patch12 -p1 -b .big-inodes-in-newc
 
 autoheader
 
@@ -116,6 +120,9 @@ fi
 %{_infodir}/*.info*
 
 %changelog
+* Wed Aug 17 2016 Pavel Raiskup <praiskup@redhat.com> - 2.10-13
+- store files with big inodes correctly into newc archive (rhbz#1155814)
+
 * Thu May 22 2014 Pavel Raiskup <praiskup@redhat.com> - 2.10-12
 - better check for read() error
 
