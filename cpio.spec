@@ -3,7 +3,7 @@
 Summary: A GNU archiving program
 Name: cpio
 Version: 2.10
-Release: 9%{?dist}
+Release: 10%{?dist}
 License: GPLv3+
 Group: Applications/Archiving
 URL: http://www.gnu.org/software/cpio/
@@ -108,6 +108,9 @@ fi
 %{_infodir}/*.info*
 
 %changelog
+* Mon Jan 09 2012 Ondrej Vasik <ovasik@redhat.com> 2.10-10
+- update cpio.1 manpage (#746209)
+
 * Mon May 31 2010 Ondrej Vasik <ovasik@redhat.com> 2.10-9
 - built with fno-strict-aliasing(#596153)
 
