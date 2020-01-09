@@ -3,7 +3,7 @@
 Summary: A GNU archiving program
 Name: cpio
 Version: 2.10
-Release: 10%{?dist}
+Release: 11%{?dist}
 License: GPLv3+
 Group: Applications/Archiving
 URL: http://www.gnu.org/software/cpio/
@@ -30,6 +30,8 @@ Patch8: cpio-2.10-patternnamesigsegv.patch
 # CVE-2010-0624 fix heap-based buffer overflow by expanding
 # a specially-crafted archive(#571843)
 Patch9: cpio-2.10-rtapeliboverflow.patch
+# fix bad file name splitting while creating ustar archive (#866467)
+Patch10: cpio-2.10-longnames-split.patch
 Requires(post): /sbin/install-info
 Requires(preun): /sbin/install-info
 BuildRequires: texinfo, autoconf, gettext, rmt
@@ -60,6 +62,7 @@ Install cpio if you need a program to manage file archives.
 %patch7  -p1 -b .utimens
 %patch8  -p1 -b .patternsegv
 %patch9  -p1 -b .rtapelib
+%patch10 -p1 -b .longnames
 
 autoheader
 
@@ -108,6 +111,9 @@ fi
 %{_infodir}/*.info*
 
 %changelog
+* Thu Oct 18 2012 Pavel Raiskup <praiskup@redhat.com> 2:10-11
+- fix for bad file name splitting while creating ustar archive (#866467)
+
 * Mon Jan 09 2012 Ondrej Vasik <ovasik@redhat.com> 2.10-10
 - update cpio.1 manpage (#746209)
 
