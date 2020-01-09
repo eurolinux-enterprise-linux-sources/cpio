@@ -1,0 +1,395 @@
+From d249aaececed97d8ed78508ddec27fc73112601f Mon Sep 17 00:00:00 2001
+From: Sergey Poznyakoff <gray@gnu.org.ua>
+Date: Mon, 1 Dec 2014 15:02:38 +0200
+Subject: [PATCH 1/2] New options to create device and inode-independent
+ archives.
+
+* src/util.c (inode_val): New member trans_inode
+(find_inode_val): New function.
+(find_inode_file): Rewrite using the above.
+(add_inode): Initialize the trans_inode member
+depending on the value of renumber_inodes_option.
+(get_inode_and_dev): New function.
+(stat_to_cpio): Use get_inode_and_dev.
+(arf_stores_inode_p): New function.
+* src/extern.h (renumber_inodes_option)
+(ignore_devno_option): New externs.
+* src/global.c (renumber_inodes_option)
+(ignore_devno_option): New variables.
+* src/main.c: Add new options.
+
+* NEWS: Document changes.
+* doc/cpio.1: Document new options.
+* doc/cpio.texi: Likewise.
+---
+ NEWS          | 14 +++++++++++
+ doc/cpio.texi | 12 +++++++++
+ src/extern.h  |  8 ++++--
+ src/global.c  |  3 +++
+ src/main.c    | 34 +++++++++++++++++++++++--
+ src/util.c    | 81 +++++++++++++++++++++++++++++++++++++++++++++++++++--------
+ 6 files changed, 138 insertions(+), 14 deletions(-)
+
+diff --git a/NEWS b/NEWS
+index 1b068ba..c112d70 100644
+--- a/NEWS
++++ b/NEWS
+@@ -5,6 +5,20 @@ See the end of file for copying conditions.
+ 
+ Please send cpio bug reports to <bug-cpio@gnu.org>.
+ 
++Downstream backports from newer versions
++* New options for copy-out mode:
++
++** --ignore-devno
++Store 0 in the device number fields, instead of the actual device
++number.
++
++** --renumber-inodes
++Renumber inodes when storing them in the archive.
++
++** --device-independent or --reproducible
++Create reproducible archives.  This is equivalent to 
++--ignore-devno --renumber-inodes.
++
+ Version 2.11 - Sergey Poznyakoff, 2010-03-10
+ 
+ * Fix mt build.
+diff --git a/doc/cpio.texi b/doc/cpio.texi
+index 1af808a..c9b62ee 100644
+--- a/doc/cpio.texi
++++ b/doc/cpio.texi
+@@ -342,6 +342,11 @@ Set the I/O block size to @var{io-size} bytes.
+ @itemx --make-directories
+ Create leading directories where needed.
+ 
++@item --device-independent
++@itemx --reproducible
++Create reproducible archives.  This is equivalent to
++@option{--ignore-devno --renumber-inodes}.
++
+ @item -E @var{file}
+ @itemx --pattern-file=@var{file}
+ Read additional patterns specifying filenames to extract or list from
+@@ -419,6 +424,10 @@ of the remote host.  The hostname can be preceded by a username and an @samp{@@}
+ access the remote tape drive as that user, if you have permission to do
+ so (typically an entry in that user's @file{~/.rhosts} file).
+ 
++@item --ignore-devno
++Store 0 in the device number field of each archive member, instead of
++the actual device number.
++
+ @item -k
+ Ignored; for compatibility with other versions of cpio.
+ 
+@@ -486,6 +495,9 @@ Do not print the number of blocks copied.
+ @itemx --rename
+ Interactively rename files.
+ 
++@item --renumber-inodes
++Renumber inodes when storing them in the archive.
++
+ @item -R @var{owner}
+ @itemx --owner @var{owner}
+ 
+diff --git a/src/extern.h b/src/extern.h
+index 4f94d40..f3a6c47 100644
+--- a/src/extern.h
++++ b/src/extern.h
+@@ -56,6 +56,8 @@ extern int only_verify_crc_flag;
+ extern int no_abs_paths_flag;
+ extern unsigned int warn_option;
+ extern mode_t newdir_umask;
++extern int renumber_inodes_option;
++extern int ignore_devno_option;
+ 
+ /* Values for warn_option */
+ #define CPIO_WARN_NONE     0
+@@ -171,8 +173,8 @@ void create_all_directories (char *name);
+ void prepare_append (int out_file_des);
+ char *find_inode_file (ino_t node_num,
+ 		       unsigned long major_num, unsigned long minor_num);
+-void add_inode (ino_t node_num, char *file_name,
+-	        unsigned long major_num, unsigned long minor_num);
++struct inode_val *add_inode (ino_t node_num, char *file_name,
++			     unsigned long major_num, unsigned long minor_num);
+ int open_archive (char *file);
+ void tape_offline (int tape_des);
+ void get_next_reel (int tape_des);
+@@ -217,3 +219,5 @@ void delay_set_stat (char const *file_name, struct stat *st,
+ int repair_delayed_set_stat (struct cpio_file_stat *file_hdr);
+ void apply_delayed_set_stat (void);
+      
++int arf_stores_inode_p (enum archive_format arf);
++
+diff --git a/src/global.c b/src/global.c
+index cff9720..fb074fb 100644
+--- a/src/global.c
++++ b/src/global.c
+@@ -193,3 +193,6 @@ int (*xstat) ();
+ 
+ /* Which copy operation to perform. (-i, -o, -p) */
+ void (*copy_function) () = 0;
++
++int renumber_inodes_option;
++int ignore_devno_option;
+diff --git a/src/main.c b/src/main.c
+index 9b9bf74..6945c7d 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -57,7 +57,10 @@ enum cpio_options {
+   FORCE_LOCAL_OPTION,            
+   DEBUG_OPTION,                  
+   BLOCK_SIZE_OPTION,             
+-  TO_STDOUT_OPTION
++  TO_STDOUT_OPTION,
++  RENUMBER_INODES_OPTION,
++  IGNORE_DEVNO_OPTION,
++  DEVICE_INDEPENDENT_OPTION
+ };
+ 
+ const char *program_authors[] =
+@@ -175,6 +178,13 @@ static struct argp_option options[] = {
+    N_("Append to an existing archive."), GRID+1 },
+   {NULL, 'O', N_("[[USER@]HOST:]FILE-NAME"), 0,
+    N_("Archive filename to use instead of standard output. Optional USER and HOST specify the user and host names in case of a remote archive"), GRID+1 },
++  {"renumber-inodes", RENUMBER_INODES_OPTION, NULL, 0,
++   N_("Renumber inodes") },
++  {"ignore-devno", IGNORE_DEVNO_OPTION, NULL, 0,
++   N_("Don't store device numbers") },
++  {"device-independent", DEVICE_INDEPENDENT_OPTION, NULL, 0,
++   N_("Create device-independent (reproducible) archives") },
++  {"reproducible", 0, NULL, OPTION_ALIAS },
+ #undef GRID
+   
+   /* ********** */
+@@ -432,7 +442,19 @@ crc newc odc bin ustar tar (all-caps also recognized)"), arg);
+ 	error (PAXEXIT_FAILURE, 0, _("Mode already defined"));
+       copy_function = process_copy_pass;
+       break;
+-	  
++
++    case IGNORE_DEVNO_OPTION:
++      ignore_devno_option = 1;
++      break;
++      
++    case RENUMBER_INODES_OPTION:
++      renumber_inodes_option = 1;
++      break;
++
++    case DEVICE_INDEPENDENT_OPTION:
++      ignore_devno_option = renumber_inodes_option = 1;
++      break;
++      
+     case RSH_COMMAND_OPTION:
+       rsh_command_option = arg;
+       break;
+@@ -575,6 +597,8 @@ process_args (int argc, char *argv[])
+       CHECK_USAGE(xstat != lstat, "--dereference", "--extract");
+       CHECK_USAGE(append_flag, "--append", "--extract");
+       CHECK_USAGE(output_archive_name, "-O", "--extract");
++      CHECK_USAGE (renumber_inodes_option, "--renumber-inodes", "--extract");
++      CHECK_USAGE (ignore_devno_option, "--ignore-devno", "--extract");
+       if (to_stdout_option)
+ 	{
+ 	  CHECK_USAGE(create_dir_flag, "--make-directories", "--to-stdout");
+@@ -630,6 +654,9 @@ process_args (int argc, char *argv[])
+ 	archive_format = arf_binary;
+       if (output_archive_name)
+ 	archive_name = output_archive_name;
++
++      if (!arf_stores_inode_p (archive_format))
++	renumber_inodes_option = ignore_devno_option = 0;
+     }
+   else
+     {
+@@ -655,6 +682,9 @@ process_args (int argc, char *argv[])
+       CHECK_USAGE(no_abs_paths_flag, "--absolute-pathnames",
+ 		  "--pass-through");
+       CHECK_USAGE(to_stdout_option, "--to-stdout", "--pass-through");
++      CHECK_USAGE (renumber_inodes_option, "--renumber-inodes",
++		   "--pass-through");
++      CHECK_USAGE (ignore_devno_option, "--ignore-devno", "--pass-through");
+       
+       directory_name = argv[index];
+     }
+diff --git a/src/util.c b/src/util.c
+index 2a821c7..ce45842 100644
+--- a/src/util.c
++++ b/src/util.c
+@@ -689,6 +689,7 @@ struct inode_val
+   ino_t inode;
+   unsigned long major_num;
+   unsigned long minor_num;
++  ino_t trans_inode;
+   char *file_name;
+ };
+ 
+@@ -712,8 +713,8 @@ inode_val_compare (const void *val1, const void *val2)
+          && ival1->minor_num == ival2->minor_num;
+ }
+ 
+-char *
+-find_inode_file (ino_t node_num, unsigned long major_num,
++static struct inode_val *
++find_inode_val (ino_t node_num, unsigned long major_num,
+ 		 unsigned long minor_num)
+ {
+   struct inode_val sample;
+@@ -725,32 +726,78 @@ find_inode_file (ino_t node_num, unsigned long major_num,
+   sample.inode = node_num;
+   sample.major_num = major_num;
+   sample.minor_num = minor_num;
+-  ival = hash_lookup (hash_table, &sample);
++  return hash_lookup (hash_table, &sample);
++}
++
++char *
++find_inode_file (ino_t node_num, unsigned long major_num,
++		 unsigned long minor_num)
++{
++  struct inode_val *ival = find_inode_val (node_num, major_num, minor_num);
+   return ival ? ival->file_name : NULL;
+ }
+ 
+ /* Associate FILE_NAME with the inode NODE_NUM.  (Insert into hash table.)  */
+ 
+-void
++static ino_t next_inode;
++
++struct inode_val *
+ add_inode (ino_t node_num, char *file_name, unsigned long major_num,
+ 	   unsigned long minor_num)
+ {
+   struct inode_val *temp;
+-  struct inode_val *e;
++  struct inode_val *e = NULL;
+   
+   /* Create new inode record.  */
+   temp = (struct inode_val *) xmalloc (sizeof (struct inode_val));
+   temp->inode = node_num;
+   temp->major_num = major_num;
+   temp->minor_num = minor_num;
+-  temp->file_name = xstrdup (file_name);
++  temp->file_name = file_name ? xstrdup (file_name) : NULL;
++
++  if (renumber_inodes_option)
++    temp->trans_inode = next_inode++;
++  else
++    temp->trans_inode = temp->inode;
+ 
+   if (!((hash_table
+ 	 || (hash_table = hash_initialize (0, 0, inode_val_hasher,
+ 					   inode_val_compare, 0)))
+ 	&& (e = hash_insert (hash_table, temp))))
+     xalloc_die ();
+-  /* FIXME: e is not used */
++  return e;
++}
++
++static ino_t
++get_inode_and_dev (struct cpio_file_stat *hdr, struct stat *st)
++{
++  if (renumber_inodes_option)
++    {
++      if (st->st_nlink > 1)
++	{
++	  struct inode_val *ival = find_inode_val (st->st_ino,
++						   major (st->st_dev),
++						   minor (st->st_dev));
++	  if (!ival)
++	    ival = add_inode (st->st_ino, NULL,
++			      major (st->st_dev), minor (st->st_dev));
++	  hdr->c_ino = ival->trans_inode;
++	}
++      else
++	hdr->c_ino = next_inode++;
++    }
++  else
++    hdr->c_ino = st->st_ino;
++  if (ignore_devno_option)
++    {
++      hdr->c_dev_maj = 0;
++      hdr->c_dev_min = 0;
++    }
++  else
++    {
++      hdr->c_dev_maj = major (st->st_dev);
++      hdr->c_dev_min = minor (st->st_dev);
++    }
+ }
+ 
+ 
+@@ -1220,9 +1267,8 @@ sparse_write (int fildes, char *buf, unsigned int nbyte)
+ void
+ stat_to_cpio (struct cpio_file_stat *hdr, struct stat *st)
+ {
+-  hdr->c_dev_maj = major (st->st_dev);
+-  hdr->c_dev_min = minor (st->st_dev);
+-  hdr->c_ino = st->st_ino;
++  get_inode_and_dev (hdr, st);
++
+   /* For POSIX systems that don't define the S_IF macros,
+      we can't assume that S_ISfoo means the standard Unix
+      S_IFfoo bit(s) are set.  So do it manually, with a
+@@ -1618,3 +1664,18 @@ cpio_create_dir (struct cpio_file_stat *file_hdr, int existing_dir)
+   return 0;
+ }
+ 
++/* Return true if the archive format ARF stores inode numbers */
++int
++arf_stores_inode_p (enum archive_format arf)
++{
++  switch (arf)
++    {
++    case arf_tar:
++    case arf_ustar:
++      return 0;
++
++    default:
++      break;
++    }
++  return 1;
++}
+-- 
+2.9.3
+
+
+From 8d468d9c5134415b187dc5738a7fdaec17f87cf5 Mon Sep 17 00:00:00 2001
+From: Pavel Raiskup <praiskup@redhat.com>
+Date: Mon, 6 Feb 2017 08:43:18 +0100
+Subject: [PATCH 2/2] build: lint warnings in --device-independent
+
+Complements: 3945f9db44c935608caa5f0
+
+* src/util.c (find_inode_val): Drop unused variable.
+(get_inode_and_dev): Function doesn't return any value, drop the
+return value in definition.
+---
+ src/util.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/src/util.c b/src/util.c
+index ce45842..f3efc6c 100644
+--- a/src/util.c
++++ b/src/util.c
+@@ -718,7 +718,6 @@ find_inode_val (ino_t node_num, unsigned long major_num,
+ 		 unsigned long minor_num)
+ {
+   struct inode_val sample;
+-  struct inode_val *ival;
+   
+   if (!hash_table)
+     return NULL;
+@@ -768,7 +767,7 @@ add_inode (ino_t node_num, char *file_name, unsigned long major_num,
+   return e;
+ }
+ 
+-static ino_t
++static void
+ get_inode_and_dev (struct cpio_file_stat *hdr, struct stat *st)
+ {
+   if (renumber_inodes_option)
+-- 
+2.9.3
+

@@ -1,7 +1,7 @@
 Summary: A GNU archiving program
 Name: cpio
 Version: 2.11
-Release: 25%{?dist}
+Release: 27%{?dist}
 License: GPLv3+
 Group: Applications/Archiving
 URL: http://www.gnu.org/software/cpio/
@@ -45,6 +45,14 @@ Patch13: cpio-2.11-testsuite-CVE-2014-9112.patch
 # ~> upstream ccec71ec318f
 Patch14: cpio-2.11-crc-big-files.patch
 
+# Reproducible archives (rhbz#1386662)
+# ~> upstream 3945f9db4 + small warning patch.
+Patch15: cpio-2.11-reproducible.patch
+
+# Don't segfault during recovery
+# ~> upstream fd262d116c4564c1796
+Patch16: cpio-2.11-recovery.patch
+
 Requires(post): /sbin/install-info
 Requires(preun): /sbin/install-info
 Provides: bundled(gnulib)
@@ -82,6 +90,8 @@ Install cpio if you need a program to manage file archives.
 %patch12 -p1 -b .CVE-2014-9112
 %patch13 -p1 -b .CVE-2014-9112-test
 %patch14 -p1 -b .crc-big-files
+%patch15 -p1 -b .reproducible
+%patch16 -p1 -b .recovery
 
 autoreconf -v
 
@@ -132,6 +142,12 @@ fi
 %{_infodir}/*.info*
 
 %changelog
+* Mon Feb 06 2017 Pavel Raiskup <praiskup@redhat.com> - 2.11-27
+- don't segfault during recovery (rhbz#1318084)
+
+* Mon Feb 06 2017 Pavel Raiskup <praiskup@redhat.com> - 2.11-26
+- reproducible archives (rhbz#1386662)
+
 * Mon Feb 06 2017 Pavel Raiskup <praiskup@redhat.com> - 2.11-25
 - fix crc checksum for files ~200M+ (rhbz#1415081)
 

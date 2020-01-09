@@ -115,6 +115,10 @@ Set the I/O block size to IO-SIZE bytes.
 `\fB\-d, \-\-make\-directories\fR'
 Create leading directories where needed.
 .TP
+`\fB\-\-device\-independent, \-\-reproducible\fR'
+Create reproducible archives.  This is equivalent to \fB\-\-ignore\-devno
+\-\-renumber\-inodes\fR.
+.TP
 `\fB\-E \s-1FILE\s0, \-\-pattern\-file=FILE\fR'
 Read additional patterns specifying filenames to extract or list
 from \s-1FILE\s0.  The lines of \s-1FILE\s0 are treated as if they had been
@@ -181,6 +185,10 @@ username and an `\fB@\fR' to access the remote tape drive as that user,
 if you have permission to do so (typically an entry in that user's
 `\fB~/.rhosts\fR' file).
 .TP
+`\fB\-\-ignore\-devno\fR'
+Store 0 in the device number field of each archive member, instead of the
+actual device number.
+.TP
 `\fB\-k\fR'
 Ignored; for compatibility with other versions of cpio.
 .TP
@@ -241,6 +249,9 @@ Do not print the number of blocks copied.
 .TP
 `\fB\-r, \-\-rename\fR'
 Interactively rename files.
+.TP
+`\fB\-\-renumber\-inodes\fR'
+Renumber inodes when storing them in the archive.
 .TP
 `\fB\-R [user][:.][group], \-\-owner [user][:.][group]\fR'
 Set the ownership of all files created to the specified user and/or
