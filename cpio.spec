@@ -1,7 +1,7 @@
 Summary: A GNU archiving program
 Name: cpio
 Version: 2.11
-Release: 24%{?dist}
+Release: 25%{?dist}
 License: GPLv3+
 Group: Applications/Archiving
 URL: http://www.gnu.org/software/cpio/
@@ -41,6 +41,10 @@ Patch11: cpio-2.11-ru-translation.patch
 Patch12: cpio-2.11-CVE-2014-9112.patch
 Patch13: cpio-2.11-testsuite-CVE-2014-9112.patch
 
+# Correct crc checksum (rhbz#1415081)
+# ~> upstream ccec71ec318f
+Patch14: cpio-2.11-crc-big-files.patch
+
 Requires(post): /sbin/install-info
 Requires(preun): /sbin/install-info
 Provides: bundled(gnulib)
@@ -77,6 +81,7 @@ Install cpio if you need a program to manage file archives.
 %patch11 -p1 -b .ru-translation
 %patch12 -p1 -b .CVE-2014-9112
 %patch13 -p1 -b .CVE-2014-9112-test
+%patch14 -p1 -b .crc-big-files
 
 autoreconf -v
 
@@ -127,6 +132,9 @@ fi
 %{_infodir}/*.info*
 
 %changelog
+* Mon Feb 06 2017 Pavel Raiskup <praiskup@redhat.com> - 2.11-25
+- fix crc checksum for files ~200M+ (rhbz#1415081)
+
 * Wed Jul 08 2015 Pavel Raiskup <praiskup@redhat.com> - 2.11-24
 - fix for CVE-2014-9112
 

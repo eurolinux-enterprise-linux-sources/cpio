@@ -1,0 +1,118 @@
+From 610e732bda06aef9ff3b16df757ddc32d8368a1a Mon Sep 17 00:00:00 2001
+From: Sergey Poznyakoff <gray@gnu.org.ua>
+Date: Mon, 20 Feb 2012 19:51:27 +0200
+Subject: [PATCH] Always use 32 bit CRC
+
+* src/cpiohdr.h (cpio_file_stat) <c_chksum>: Change type to
+uint32_t.
+* src/extern.h (crc): Change type to uint32_t.
+* src/global.c: Likewise.
+* src/copyout.c (read_for_checksum): Return uint32_t.
+* src/copyin.c: Fix printf formats.
+---
+ src/copyin.c  | 8 ++++----
+ src/copyout.c | 4 ++--
+ src/cpiohdr.h | 2 +-
+ src/extern.h  | 2 +-
+ src/global.c  | 2 +-
+ 5 files changed, 9 insertions(+), 9 deletions(-)
+
+diff --git a/src/copyin.c b/src/copyin.c
+index 29d0fb1..db8ee66 100644
+--- a/src/copyin.c
++++ b/src/copyin.c
+@@ -193,7 +193,7 @@ list_file (struct cpio_file_stat* file_hdr, int in_file_des)
+ #endif
+       if (crc != file_hdr->c_chksum)
+ 	{
+-	  error (0, 0, _("%s: checksum error (0x%lx, should be 0x%lx)"),
++	  error (0, 0, _("%s: checksum error (0x%x, should be 0x%x)"),
+ 		 file_hdr->c_name, crc, file_hdr->c_chksum);
+ 	}
+     }
+@@ -540,7 +540,7 @@ copyin_regular_file (struct cpio_file_stat* file_hdr, int in_file_des)
+       if (archive_format == arf_crcascii)
+ 	{
+ 	  if (crc != file_hdr->c_chksum)
+-	    error (0, 0, _("%s: checksum error (0x%lx, should be 0x%lx)"),
++	    error (0, 0, _("%s: checksum error (0x%x, should be 0x%x)"),
+ 		   file_hdr->c_name, crc, file_hdr->c_chksum);
+ 	}
+       tape_skip_padding (in_file_des, file_hdr->c_filesize);
+@@ -565,7 +565,7 @@ copyin_regular_file (struct cpio_file_stat* file_hdr, int in_file_des)
+   if (archive_format == arf_crcascii)
+     {
+       if (crc != file_hdr->c_chksum)
+-	error (0, 0, _("%s: checksum error (0x%lx, should be 0x%lx)"),
++	error (0, 0, _("%s: checksum error (0x%x, should be 0x%x)"),
+ 	       file_hdr->c_name, crc, file_hdr->c_chksum);
+     }
+ 
+@@ -1454,7 +1454,7 @@ process_copy_in ()
+ 	    tape_skip_padding (in_file_des, file_hdr.c_filesize);
+ 	    if (crc != file_hdr.c_chksum)
+ 	      {
+-		error (0, 0, _("%s: checksum error (0x%lx, should be 0x%lx)"),
++		error (0, 0, _("%s: checksum error (0x%x, should be 0x%x)"),
+ 		       file_hdr.c_name, crc, file_hdr.c_chksum);
+ 	      }
+          /* Debian hack: -v and -V now work with --only-verify-crc.
+diff --git a/src/copyout.c b/src/copyout.c
+index 72f1989..03eaf88 100644
+--- a/src/copyout.c
++++ b/src/copyout.c
+@@ -33,10 +33,10 @@
+ /* Read FILE_SIZE bytes of FILE_NAME from IN_FILE_DES and
+    compute and return a checksum for them.  */
+ 
+-static unsigned long
++static uint32_t
+ read_for_checksum (int in_file_des, int file_size, char *file_name)
+ {
+-  unsigned long crc;
++  uint32_t crc;
+   char buf[BUFSIZ];
+   int bytes_left;
+   int bytes_read;
+diff --git a/src/cpiohdr.h b/src/cpiohdr.h
+index bb1ad6b..1c11998 100644
+--- a/src/cpiohdr.h
++++ b/src/cpiohdr.h
+@@ -123,7 +123,7 @@ struct cpio_file_stat /* Internal representation of a CPIO header */
+   long c_rdev_maj;
+   long c_rdev_min;
+   size_t c_namesize;
+-  unsigned long c_chksum;
++  uint32_t c_chksum;
+   char *c_name;
+   char *c_tar_linkname;
+ };
+diff --git a/src/extern.h b/src/extern.h
+index 4f94d40..3530bf6 100644
+--- a/src/extern.h
++++ b/src/extern.h
+@@ -75,7 +75,7 @@ extern char *new_media_message_after_number;
+ extern int archive_des;
+ extern char *archive_name;
+ extern char *rsh_command_option;
+-extern unsigned long crc;
++extern uint32_t crc;
+ extern int delayed_seek_count;
+ #ifdef DEBUG_CPIO
+ extern int debug_flag;
+diff --git a/src/global.c b/src/global.c
+index cff9720..336941e 100644
+--- a/src/global.c
++++ b/src/global.c
+@@ -144,7 +144,7 @@ char *archive_name = NULL;
+ char *rsh_command_option = NULL;
+ 
+ /* CRC checksum.  */
+-unsigned long crc;
++uint32_t crc;
+ 
+ /* Input and output buffers.  */
+ char *input_buffer, *output_buffer;
+-- 
+2.9.3
+
