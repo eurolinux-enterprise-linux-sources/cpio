@@ -3,7 +3,7 @@
 Summary: A GNU archiving program
 Name: cpio
 Version: 2.10
-Release: 11%{?dist}
+Release: 12%{?dist}
 License: GPLv3+
 Group: Applications/Archiving
 URL: http://www.gnu.org/software/cpio/
@@ -32,6 +32,10 @@ Patch8: cpio-2.10-patternnamesigsegv.patch
 Patch9: cpio-2.10-rtapeliboverflow.patch
 # fix bad file name splitting while creating ustar archive (#866467)
 Patch10: cpio-2.10-longnames-split.patch
+
+# "really" check for read() return value
+Patch11: cpio-2.11-treat-read-errors.patch
+
 Requires(post): /sbin/install-info
 Requires(preun): /sbin/install-info
 BuildRequires: texinfo, autoconf, gettext, rmt
@@ -63,6 +67,7 @@ Install cpio if you need a program to manage file archives.
 %patch8  -p1 -b .patternsegv
 %patch9  -p1 -b .rtapelib
 %patch10 -p1 -b .longnames
+%patch11 -p1 -b .safe-read-check
 
 autoheader
 
@@ -111,6 +116,9 @@ fi
 %{_infodir}/*.info*
 
 %changelog
+* Thu May 22 2014 Pavel Raiskup <praiskup@redhat.com> - 2.10-12
+- better check for read() error
+
 * Thu Oct 18 2012 Pavel Raiskup <praiskup@redhat.com> 2:10-11
 - fix for bad file name splitting while creating ustar archive (#866467)
 
