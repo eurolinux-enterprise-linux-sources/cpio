@@ -1,7 +1,7 @@
 Summary: A GNU archiving program
 Name: cpio
 Version: 2.11
-Release: 22%{?dist}
+Release: 24%{?dist}
 License: GPLv3+
 Group: Applications/Archiving
 URL: http://www.gnu.org/software/cpio/
@@ -29,6 +29,17 @@ Patch8: cpio-2.11-crc-fips-nit.patch
 # use the config.guess/config.sub files from actual automake-1.13
 # ~> #925189
 Patch9: cpio-2.11-arm-config-sub-guess.patch
+
+# "really" check for read() return value
+Patch10: cpio-2.11-treat-read-errors.patch
+
+# Small typo in RU translation
+# ~> #1075510
+# ~> downstream?
+Patch11: cpio-2.11-ru-translation.patch
+
+Patch12: cpio-2.11-CVE-2014-9112.patch
+Patch13: cpio-2.11-testsuite-CVE-2014-9112.patch
 
 Requires(post): /sbin/install-info
 Requires(preun): /sbin/install-info
@@ -62,6 +73,10 @@ Install cpio if you need a program to manage file archives.
 %patch7 -p1 -b .longnames
 %patch8 -p1 -b .sum32-fips
 %patch9 -p1 -b .arm-config-guess-sub
+%patch10 -p1 -b .safe-read-check
+%patch11 -p1 -b .ru-translation
+%patch12 -p1 -b .CVE-2014-9112
+%patch13 -p1 -b .CVE-2014-9112-test
 
 autoreconf -v
 
@@ -69,6 +84,8 @@ autoreconf -v
 
 CFLAGS="$RPM_OPT_FLAGS -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE -pedantic -fno-strict-aliasing -Wall" %configure --with-rmt="%{_sysconfdir}/rmt"
 make %{?_smp_mflags}
+(cd po && make update-gmo)
+
 
 %install
 rm -rf ${RPM_BUILD_ROOT}
@@ -110,6 +127,13 @@ fi
 %{_infodir}/*.info*
 
 %changelog
+* Wed Jul 08 2015 Pavel Raiskup <praiskup@redhat.com> - 2.11-24
+- fix for CVE-2014-9112
+
+* Wed May 20 2015 Pavel Raiskup <praiskup@redhat.com> - 2.11-23
+- better check for read() error (rhbz#1138148)
+- fix ru translation (rhbz#1075513)
+
 * Fri Jan 24 2014 Daniel Mach <dmach@redhat.com> - 2.11-22
 - Mass rebuild 2014-01-24
 

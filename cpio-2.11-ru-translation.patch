@@ -1,0 +1,13 @@
+diff --git a/po/ru.po b/po/ru.po
+index 8bb24e2..39110a3 100644
+--- a/po/ru.po
++++ b/po/ru.po
+@@ -1132,7 +1132,7 @@ msgid ""
+ "You must specify one of -oipt options.\n"
+ "Try `%s --help' or `%s --usage' for more information.\n"
+ msgstr ""
+-"Необходимо указать один из апарметров -oipt.\n"
++"Необходимо указать один из параметров -oipt.\n"
+ "Попробуйте указать `%s --help' или `%s --usage',\n"
+ "чтобы получить дополнительную информацию.\n"
+ 
